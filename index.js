@@ -132,7 +132,7 @@ exports.block = function (block) {
 	};
 }
 
-exports.build = function () {
+exports.build = function (template) {
 	fs.readdir(exports.__templatePath + '/templates', function (err, filenames) {
 		exports.__templatesTotal = filenames.length;
 
@@ -172,9 +172,21 @@ exports.build = function () {
 			console.timeEnd('template');
 		});
 
-	    filenames.forEach(function (filename) {
-	    	file = filename.split('.'); file.splice(-1, 1); file = file.join('.');
-	    	exports.getTemplate(file);
-	    });
+		if(typeof template !== 'undefined') {
+		    filenames.forEach(function (filename) {
+		    	file = filename.split('.'); file.splice(-1, 1); file = file.join('.');
+		    	exports.getTemplate(file);
+		    });
+		} else {
+			exports.getTemplate(template);
+
+			return {
+				template : template,
+				reset : function () {
+					that = this;
+					jQuery('tpl[name='+that.template+']').html(exports.__templates[that.template].content);
+				}
+			}
+		}
   	});
 }
