@@ -8,12 +8,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fehlix/electron-simple-templates.git"
+    "url": "git+https://github.com/romeobalta/electron-simple-templates.git"
   },
   "author": "Romeo Balta <romeobalta@gmail.com>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/fehlix/electron-simple-templates/issues"
+    "url": "https://github.com/romeobalta/electron-simple-templates/issues"
   },
-  "homepage": "https://github.com/fehlix/electron-simple-templates#readme"
+  "homepage": "https://github.com/romeobalta/electron-simple-templates#readme"
 }
