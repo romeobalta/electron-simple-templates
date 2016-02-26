@@ -1,192 +1,184 @@
 var fs = require('fs');
-var events = require('events');
 
-eventEmitter = new events.EventEmitter();
-
-exports.__templatePath = "";
-
-exports.__templateData = [];
-
-exports.__templates = [];
+exports.__templatePath      = "";
+exports.__templateData      = [];
+exports.__templates         = [];
+exports.__templatesUnbuild  = [];
+exports.__templatesBuilt    = 0;
+exports.__templatesCompiled = [];
 
 exports.path = function (path) {
-
-	exports.__templatePath = process.cwd() + '/' + path;
+    exports.__templatePath = process.cwd() + '/' + path;
 }
 
 exports.getTemplate = function (template) {
+    templateContent = fs.readFileSync(exports.__templatePath + '/templates/' + template + '.tp', 'utf-8');
 
-	fs.readFile(exports.__templatePath + '/templates/' + template + '.tp', 'utf-8', function(err, templateContent) {
-		Array.prototype.shift.apply(arguments);
+    Array.prototype.shift.apply(arguments);
 
-		var templateData = [];
+    var templateData = [];
 
-		if (exports.__templateData.hasOwnProperty(template)) {
+    if (exports.__templateData.hasOwnProperty(template)) {
 
-			for (var member in exports.__templateData[template]) {
+        for (var member in exports.__templateData[template]) {
 
-				templateData[member] = exports.__templateData[template][member];
-			}
-		}
+            templateData[member] = exports.__templateData[template][member];
+        }
+    }
 
-		buildArguments(templateData, '', arguments);
+    buildArguments(templateData, '', arguments);
 
-		jQuery.each(Object.keys(templateData), function (i, e) {
+    exports.__templatesUnbuild[template] = templateContent;
 
-			templateContent = templateContent.replace('{{ ' + e + ' }}', templateData[e]);
-		});
+    jQuery.each(Object.keys(templateData), function (i, e) {
 
-		function buildArguments (templateData, start) {
+        templateContent = templateContent.replace('{{ ' + e + ' }}', templateData[e]);
+    });
 
-			jQuery.each(arguments[2], function (i, e) {
+    function buildArguments (templateData, start) {
 
-				var key = ((start !== '') ? start + '.' + i : (isNaN(i) ? i : '') );
+        jQuery.each(arguments[2], function (i, e) {
 
-				if (typeof e === 'object') {
+            var key = ((start !== '') ? start + '.' + i : (isNaN(i) ? i : '') );
 
-					start = buildArguments(templateData, key, e);
-				} else {
+            if (typeof e === 'object') {
 
-					templateData[((start !== '') ? start + '.' + i : i)] = e;
-				}
-			});
-		}
+                start = buildArguments(templateData, key, e);
+            } else {
 
-		function buildDependencies (templateContent) {
-			templateContent = "<tpl>"+templateContent+"</tpl>";
-			var deps = [];
+                templateData[((start !== '') ? start + '.' + i : i)] = e;
+            }
+        });
+    }
 
-			jQuery(templateContent).find('tpl').each(function (i, e) {
-				deps.push(jQuery(this).attr('name'));
-			});
+    function buildDependencies (templateContent) {
+        templateContent = "<tpl>"+templateContent+"</tpl>";
+        var deps = [];
 
-			return deps;
-		}
+        jQuery(templateContent).find('tpl').each(function (i, e) {
+            deps.push(jQuery(this).attr('name'));
+        });
 
-		exports.__templates[template] = { 
-			content : templateContent,
-			dependencies : buildDependencies(templateContent)
-		};
+        return deps;
+    }
 
-		exports.__templatesBuilt++;
+    exports.__templates[template] = { 
+        content : templateContent,
+        dependencies : buildDependencies(templateContent)
+    };
 
-		if (exports.__templatesTotal == exports.__templatesBuilt) {
-			eventEmitter.emit('compile-templates');
-		}
-	});	
+    exports.__templatesBuilt++;
+
+    if (exports.__templatesTotal == exports.__templatesBuilt) {
+        exports.__templatesCompile();
+    } 
 }
 
 exports.data = function (template, data) {
+    var templateData = [];
 
-	var templateData = [];
+    setData();
 
-	buildArguments(templateData, '', data);
+    function setData () {
+        buildArguments(templateData, '', data);
 
-	if (exports.__templateData.hasOwnProperty(template)) {
+        if (exports.__templateData.hasOwnProperty(template)) {
+            for (var member in templateData) {
+                exports.__templateData[template][member] = templateData[member];
+            }
+        } else {
+            exports.__templateData[template] = templateData;
+        }
 
-		for (var member in templateData) { 
-			exports.__templateData[template][member] = templateData[member]; 
-		}
-	} else {
-		exports.__templateData[template] = templateData;
-	}
+        function buildArguments (templateData, start) {
 
-	function buildArguments (templateData, start) {
+            jQuery.each(arguments[2], function (i, e) {
 
-		jQuery.each(arguments[2], function (i, e) {
+                var key = ((start !== '') ? start + '.' + i : (isNaN(i) ? i : '') );
 
-			var key = ((start !== '') ? start + '.' + i : (isNaN(i) ? i : '') );
+                if (typeof e === 'object') {
 
-			if (typeof e === 'object') {
+                    start = buildArguments(templateData, key, e);
+                } else {
 
-				start = buildArguments(templateData, key, e);
-			} else {
-
-				templateData[((start !== '') ? start + '.' + i : i)] = e;
-			}
-		});
-	}
-
-	return exports;
+                    templateData[((start !== '') ? start + '.' + i : i)] = e;
+                }
+            });
+        }
+    }
 }
 
 exports.block = function (block) {
-	return {
-		block : block, 
-		set : function (blockTeplate) {
-			that = this;
-			eventEmitter.on('build-blocks', function () {
-				var blockContent = fs.readFileSync(exports.__templatePath + '/blocks/' + blockTeplate + '.bp', 'utf8');
+    return {
+        block : block, 
+        set : function (blockTeplate) {
+            that = this;
+            var blockContent = fs.readFileSync(exports.__templatePath + '/blocks/' + blockTeplate + '.bp', 'utf8');
 
-				var blockContent = jQuery.parseHTML('<blk>'+blockContent+'</blk>');
+            var blockContent = jQuery.parseHTML('<blk>'+blockContent+'</blk>');
 
-				jQuery(blockContent).find('tpl').each(function (i, e) {
-					jQuery(e).html(exports.__templates[jQuery(e).attr('name')].content);
-				});
+            jQuery(blockContent).find('tpl').each(function (i, e) {
+                jQuery(e).html(exports.__templates[jQuery(e).attr('name')].content);
+            });
 
-				jQuery('block[name='+that.block+']').html(jQuery(blockContent).html());
-
-				eventEmitter.emit('finale');
-			})
-		}
-	};
+            jQuery('block[name='+that.block+']').html(jQuery(blockContent).html());
+        }
+    };
 }
 
 exports.build = function (template) {
-	fs.readdir(exports.__templatePath + '/templates', function (err, filenames) {
-		exports.__templatesTotal = filenames.length;
+    buildTemplate();
 
-		exports.__templatesBuilt = 0;
+    function buildTemplate() {
+        if(typeof template === 'undefined') {
+            exports.__templatesBuilt = 0;
+            filenames = fs.readdirSync(exports.__templatePath + '/templates');
+            exports.__templatesTotal = filenames.length;
 
-		exports.__templatesCompiled = [];
+            filenames.forEach(function (filename) {
+                file = filename.split('.'); file.splice(-1, 1); file = file.join('.');
+                exports.getTemplate(file);
+            });
+        } else {
+            exports.__templatesBuilt--;
+            exports.getTemplate(template);
+        }
+    }
 
-		function compileTemplate (name, template) {
-			if (exports.__templatesCompiled.indexOf(name) < 0) {
-				if (typeof template.dependencies !== "undefined" && template.dependencies.length > 0) {
-					for (var dep in template.dependencies) {
-						if (typeof exports.__templatesCompiled[template.dependencies[dep]] === 'undefined') {
-							compileTemplate(template.dependencies[dep], exports.__templates[template.dependencies[dep]]);
-						}
-					}
-				}
+    return {
+        template : template,
+        reset : function () {
+            template = this.template;
 
-				templateContent = jQuery.parseHTML('<tpl>'+template.content+'</tpl>');
+            jQuery('tpl[name='+template+']').html(exports.__templates[template].content);
+        }
+    }
+}
 
-				jQuery(templateContent).find('tpl').each(function (i, e) {
-					jQuery(e).html(exports.__templates[jQuery(e).attr('name')].content);
-				});
+exports.__templatesCompile = function () {
+    for (var template in exports.__templates) {
+        compileTemplate(template, exports.__templates[template]);
+    }
 
-				exports.__templates[name].content = jQuery(templateContent).html();
+    function compileTemplate (name, template) {
+        if (exports.__templatesCompiled.indexOf(name) < 0) {
+            if (typeof template.dependencies !== "undefined" && template.dependencies.length > 0) {
+                for (var dep in template.dependencies) {
+                    if (typeof exports.__templatesCompiled[template.dependencies[dep]] === 'undefined') {
+                        compileTemplate(template.dependencies[dep], exports.__templates[template.dependencies[dep]]);
+                    }
+                }
+            }
 
-				exports.__templatesCompiled.push(name);
-			}
-		}
+            templateContent = jQuery.parseHTML('<tpl>'+template.content+'</tpl>');
 
-		eventEmitter.on('compile-templates', function () {
-			for (var template in exports.__templates) {
-				compileTemplate(template, exports.__templates[template]);
-			}
+            jQuery(templateContent).find('tpl').each(function (i, e) {
+                jQuery(e).html(exports.__templates[jQuery(e).attr('name')].content);
+            });
 
-			eventEmitter.emit('build-blocks');
+            exports.__templates[name].content = jQuery(templateContent).html();
 
-			console.timeEnd('template');
-		});
-
-		if(typeof template !== 'undefined') {
-		    filenames.forEach(function (filename) {
-		    	file = filename.split('.'); file.splice(-1, 1); file = file.join('.');
-		    	exports.getTemplate(file);
-		    });
-		} else {
-			exports.getTemplate(template);
-
-			return {
-				template : template,
-				reset : function () {
-					that = this;
-					jQuery('tpl[name='+that.template+']').html(exports.__templates[that.template].content);
-				}
-			}
-		}
-  	});
+            exports.__templatesCompiled.push(name);
+        }
+    }
 }
