@@ -1,6 +1,6 @@
 {
   "name": "electron-simple-templates",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Simple templating system for electron.",
   "main": "index.js",
   "scripts": {
